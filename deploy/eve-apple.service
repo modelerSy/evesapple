@@ -1,0 +1,25 @@
+[Unit]
+Description=Eve's Apple FastAPI service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/sangyun/Desktop/Eve
+EnvironmentFile=/home/sangyun/Desktop/Eve/.env
+Environment=APP_ENV=production
+Environment=EVE_OPENSHELL_ENABLED=true
+Environment=EVE_OPENSHELL_IMAGE=eve-openshell-evidence-hunter:0.1
+ExecStart=/opt/anaconda3/bin/python3.13 -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8100
+Restart=on-failure
+RestartSec=5
+# Fast Bite requests are cancellable during a deployment. Do not leave the
+# public service unavailable while a long-running upstream request drains.
+TimeoutStopSec=10
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectHome=read-only
+ReadWritePaths=/home/sangyun/Desktop/Eve/data
+
+[Install]
+WantedBy=default.target
