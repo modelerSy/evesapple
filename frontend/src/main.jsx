@@ -417,7 +417,7 @@ const AGENT_NODES = [
 ];
 
 // Interactive Visual Agent Constellation with Vector SVG Labels
-function AgentRadialConstellation({ activeAgent, busy, l }) {
+function AgentRadialConstellation({ activeAgent, busy, l, isComplete, onOpenReport }) {
   const cx = 210;
   const cy = 150;
   const r = 98;
@@ -434,6 +434,11 @@ function AgentRadialConstellation({ activeAgent, busy, l }) {
           <linearGradient id="centerGradient" x1="0%" y1="0%" x2="100%" y2="100%">
             <stop offset="0%" stopColor="#fff89a" />
             <stop offset="100%" stopColor="#d8f34f" />
+          </linearGradient>
+
+          <linearGradient id="completeCenterGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#fef08a" />
+            <stop offset="100%" stopColor="#bef264" />
           </linearGradient>
 
           <linearGradient id="beamGradientPink" x1="0%" y1="0%" x2="100%" y2="0%">
@@ -505,38 +510,62 @@ function AgentRadialConstellation({ activeAgent, busy, l }) {
           );
         })}
 
-        {/* Center Node: EVE Truth Core */}
-        <g className="center-node-group">
+        {/* Center Node: EVE Truth Core (Enlarged and interactive on complete) */}
+        <g
+          className={`center-node-group ${isComplete ? 'complete-pulse-glow' : ''}`}
+          onClick={isComplete ? onOpenReport : undefined}
+          style={{ cursor: isComplete ? 'pointer' : 'default' }}
+        >
           {busy && (
             <circle cx={cx} cy={cy} r="42" fill="#fff59d" opacity="0.4" className="center-pulse-ring" />
+          )}
+          {isComplete && (
+            <>
+              <circle cx={cx} cy={cy} r="52" fill="#bef264" opacity="0.32" className="center-pulse-ring-complete" />
+              <circle cx={cx} cy={cy} r="44" fill="#84cc16" opacity="0.2" />
+            </>
           )}
           <circle
             cx={cx}
             cy={cy}
-            r="32"
-            fill="url(#centerGradient)"
-            stroke="#cfdc32"
-            strokeWidth="2.5"
-            filter="drop-shadow(0px 4px 10px rgba(190, 200, 30, 0.3))"
+            r={isComplete ? "40" : "32"}
+            fill={isComplete ? "url(#completeCenterGradient)" : "url(#centerGradient)"}
+            stroke={isComplete ? "#65a30d" : "#cfdc32"}
+            strokeWidth={isComplete ? "3.2" : "2.5"}
+            filter={isComplete ? "drop-shadow(0px 4px 16px rgba(132, 204, 22, 0.55))" : "drop-shadow(0px 4px 10px rgba(190, 200, 30, 0.3))"}
           />
-          <path
-            d="M 197 150 Q 203 140, 210 150 T 223 150"
-            fill="none"
-            stroke="#2e2c22"
-            strokeWidth="2.2"
-            strokeLinecap="round"
-          />
-          <text
-            x={cx}
-            y={cy + 15}
-            textAnchor="middle"
-            fill="#2e2c22"
-            fontSize="9"
-            fontWeight="800"
-            letterSpacing="0.08em"
-          >
-            EVE CORE
-          </text>
+          {isComplete ? (
+            <>
+              <text x={cx} y={cy - 10} textAnchor="middle" fontSize="16">🍏</text>
+              <text x={cx} y={cy + 7} textAnchor="middle" fill="#14532d" fontSize="9.5" fontWeight="800" letterSpacing="0.06em">
+                EVE CORE
+              </text>
+              <text x={cx} y={cy + 21} textAnchor="middle" fill="#15803d" fontSize="8" fontWeight="700">
+                {l === 'ko' ? '결과 보기 ↗' : 'View Report ↗'}
+              </text>
+            </>
+          ) : (
+            <>
+              <path
+                d="M 197 150 Q 203 140, 210 150 T 223 150"
+                fill="none"
+                stroke="#2e2c22"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+              />
+              <text
+                x={cx}
+                y={cy + 15}
+                textAnchor="middle"
+                fill="#2e2c22"
+                fontSize="9"
+                fontWeight="800"
+                letterSpacing="0.08em"
+              >
+                EVE CORE
+              </text>
+            </>
+          )}
         </g>
 
         {/* Outer Circular Nodes with pastel colors, icons, numbers and labels */}
@@ -626,7 +655,7 @@ function AgentRadialConstellation({ activeAgent, busy, l }) {
 }
 
 // Conversation agent dialogues simulated / extracted from live trace with Active Speaker highlight
-function AgentDialogueStream({ trace, busy, elapsed = 0, l }) {
+function AgentDialogueStream({ trace, busy, elapsed = 0, l, isComplete, onOpenReport }) {
   const t = text[l];
   const items = [];
   const feedContainerRef = useRef(null);
@@ -777,6 +806,8 @@ function AgentDialogueStream({ trace, busy, elapsed = 0, l }) {
         activeAgent={activeAgent}
         busy={busy}
         l={l}
+        isComplete={isComplete}
+        onOpenReport={onOpenReport}
       />
 
       {/* Bottom Live Speech Dialogue Feed (Scrollable, ~4 items visible) */}
@@ -918,6 +949,50 @@ function StepsColumn({ trace, stages, busy, elapsed = 0, l }) {
   );
 }
 
+const COMPONENT_KO_MAP = {
+  event_date: '사건 발생 일자',
+  event_location: '사건 발생 장소 (DMZ 등)',
+  injury_count: '인명 피해 규모/수',
+  injured_nationality: '피해자 국적/소속',
+  attribution: '사건 귀책 및 공격 주체',
+  device_type: '사용된 무기/장치 종류 (목함지뢰 등)',
+  crossing_method: '군사분계선 침투 방식',
+  north_korea_denial: '북한 측 반박/유실 주장',
+  trigger_event: '대응 조치 및 촉발 사건',
+  target_population: '실험 대상 집단',
+  measurement_tool: '효능 측정 지표 및 방식',
+  intervention_duration: '실험/사용 기간',
+  claimed_effect: '주장된 수치 및 효능',
+  entity: '핵심 대상 기관/인물',
+  period: '대상 기간',
+  outcome: '결과 사실',
+  numeric_effect: '정량적 효과 수치',
+  claim_1: '핵심 정량 요건'
+};
+
+const SOURCE_TYPE_KO_MAP = {
+  PRIMARY_STUDY: '1차 연구/임상 데이터',
+  REGULATOR_OR_OFFICIAL: '정부·공공기관 1차 공식 기록',
+  PUBLISHED_STUDY: '학술지 게재 논문',
+  SECONDARY: '언론 보도 및 2차 출처'
+};
+
+function formatCompName(name, l) {
+  if (!name) return l === 'ko' ? '세부 요건' : 'Requirement';
+  if (l === 'ko') {
+    if (COMPONENT_KO_MAP[name]) return COMPONENT_KO_MAP[name];
+    const low = name.toLowerCase();
+    if (COMPONENT_KO_MAP[low]) return COMPONENT_KO_MAP[low];
+  }
+  return name.replaceAll('_', ' ');
+}
+
+function formatSourceType(type, l) {
+  if (!type) return '';
+  if (l === 'ko' && SOURCE_TYPE_KO_MAP[type]) return SOURCE_TYPE_KO_MAP[type];
+  return type.replaceAll('_', ' ');
+}
+
 // Dedicated Report Page (View 4: Summary -> Content -> Evidence)
 function ReportPage({ result, content, onBack, l }) {
   const t = text[l];
@@ -934,8 +1009,18 @@ function ReportPage({ result, content, onBack, l }) {
         <ul>
           {items.map((x, idx) => (
             <li key={idx}>
-              <strong>{x.name === 'claim_1' ? (l === 'ko' ? '핵심 정량 요건' : 'Core quantitative requirement') : x.name.replaceAll('_', ' ')}</strong>
-              {x.expected && <p>{x.expected}</p>}
+              <strong>{formatCompName(x.name, l)}</strong>
+              {x.expected && <p className="comp-expected">{x.expected}</p>}
+              {x.limitations && (Array.isArray(x.limitations) ? x.limitations.length > 0 : !!x.limitations) && (
+                <p className="comp-limitation">
+                  📌 <small><strong>{l === 'ko' ? '판정 한계' : 'Limitation'}:</strong> {Array.isArray(x.limitations) ? x.limitations.join(', ') : x.limitations}</small>
+                </p>
+              )}
+              {x.conflicts && (Array.isArray(x.conflicts) ? x.conflicts.length > 0 : !!x.conflicts) && (
+                <p className="comp-conflict">
+                  ⚡ <small><strong>{l === 'ko' ? '상충 대립 주장' : 'Conflict'}:</strong> {Array.isArray(x.conflicts) ? x.conflicts.join(', ') : x.conflicts}</small>
+                </p>
+              )}
             </li>
           ))}
         </ul>
@@ -962,7 +1047,7 @@ function ReportPage({ result, content, onBack, l }) {
           <div className="extracted-claims-list">
             <span className="claims-tag">{l === 'ko' ? '추출된 원자적 사실 주장' : 'Atomic Claims Extracted'}:</span>
             {result.claims.map((claimItem, idx) => (
-              <span key={idx} className="claim-bubble">#{idx + 1} {claimItem.claim}</span>
+              <span key={idx} className="claim-bubble">#{idx + 1} {claimItem.claim || claimItem.text}</span>
             ))}
           </div>
         )}
@@ -990,7 +1075,7 @@ function ReportPage({ result, content, onBack, l }) {
             <div className="sources-list">
               {sup.map(x => (
                 <a key={x.evidence_id} href={x.url} target="_blank" rel="noreferrer" className="source-item">
-                  <small>{x.source_type.replaceAll('_', ' ')}</small>
+                  <small>{formatSourceType(x.source_type, l)}</small>
                   <strong>{x.title || x.publisher}</strong>
                   <span className="source-domain">{x.publisher}</span>
                   {x.excerpt && <p className="source-excerpt">“{x.excerpt}”</p>}
@@ -1004,11 +1089,13 @@ function ReportPage({ result, content, onBack, l }) {
             <div className="sources-list">
               {chall.map(x => (
                 <a key={x.evidence_id} href={x.url} target="_blank" rel="noreferrer" className="source-item challenge">
-                  <small>{x.source_type.replaceAll('_', ' ')}</small>
+                  <small>{formatSourceType(x.source_type, l)}</small>
                   <strong>{x.title || x.publisher}</strong>
                   <span className="source-domain">{x.publisher}</span>
                   {x.limitations && x.limitations.length > 0 && (
-                    <p className="source-limitation">한계: {x.limitations[0]}</p>
+                    <p className="source-limitation">
+                      {l === 'ko' ? '📌 한계/단서' : 'Limitation'}: {Array.isArray(x.limitations) ? x.limitations[0] : x.limitations}
+                    </p>
                   )}
                 </a>
               ))}
@@ -1046,6 +1133,7 @@ function Workspace({ l, onOpenReport, setResultData, resultData }) {
   const [gallery, setGallery] = useState([]);
   const [showGallery, setShowGallery] = useState(false);
   const [elapsed, setElapsed] = useState(0);
+  const [mobileTab, setMobileTab] = useState('DESK');
 
   useEffect(() => {
     let timer = null;
@@ -1163,6 +1251,7 @@ function Workspace({ l, onOpenReport, setResultData, resultData }) {
       });
       const data = await res.json();
       if (!res.ok) throw Error(t.error);
+      setMobileTab('TELEMETRY');
       localStorage.setItem('eve-active-investigation', data.investigation_id);
       watchJob(data.investigation_id);
     } catch {
@@ -1174,6 +1263,7 @@ function Workspace({ l, onOpenReport, setResultData, resultData }) {
   const loadExample = async (exampleId) => {
     setBusy(true);
     setError('');
+    setMobileTab('TELEMETRY');
     try {
       const res = await fetch(`/api/v1/examples/${exampleId}`);
       const data = await res.json();
@@ -1181,6 +1271,7 @@ function Workspace({ l, onOpenReport, setResultData, resultData }) {
       setResultData(data);
       setContent(data.claims?.[0]?.claim || 'Using this product for 4 weeks improves skin elasticity by 37%.');
       setBusy(false);
+      setShowGallery(false);
       onOpenReport(data, data.claims?.[0]?.claim || '');
     } catch {
       setError(t.error);
@@ -1207,10 +1298,39 @@ function Workspace({ l, onOpenReport, setResultData, resultData }) {
         </div>
       </section>
 
+      {/* 모바일 화면 전용 상단 3단 전환 탭바 */}
+      <div className="mobile-workbench-tabs">
+        <button
+          type="button"
+          className={`m-tab-btn ${mobileTab === 'DESK' ? 'active' : ''}`}
+          onClick={() => setMobileTab('DESK')}
+        >
+          ✍️ {l === 'ko' ? '진실 탐색' : 'Search Desk'}
+        </button>
+        <button
+          type="button"
+          className={`m-tab-btn ${mobileTab === 'TELEMETRY' ? 'active' : ''}`}
+          onClick={() => setMobileTab('TELEMETRY')}
+        >
+          📡 {l === 'ko' ? '에이전트 교신' : 'Telemetry Feed'}
+          {busy && <span className="m-tab-pulse" />}
+        </button>
+        <button
+          type="button"
+          className={`m-tab-btn ${mobileTab === 'STAGES' ? 'active' : ''}`}
+          onClick={() => setMobileTab('STAGES')}
+        >
+          📋 {l === 'ko' ? '9단계 파이프라인' : 'Stages'}
+          <span className="m-tab-badge">
+            {busy ? `${Math.min(9, Math.floor(elapsed / 10) + 1)}/9` : (resultData ? '9/9' : '0/9')}
+          </span>
+        </button>
+      </div>
+
       {/* 2 & 3) 컴퓨터 화면 3분할 워크스테이션: 좌측 입력 / 중앙 에이전트 실시간 교신 / 우측 파이프라인 1~9 단계 */}
       <div className="workbench-grid">
         {/* 좌측: Input 및 실행 영역 */}
-        <div className="input-desk workbench-card">
+        <div className={`input-desk workbench-card ${mobileTab === 'DESK' ? 'm-active' : 'm-hidden'}`}>
           <div className="desk-header">
             <span className="section-kicker">🍎 {t.start}</span>
             <h2>{t.ask}</h2>
@@ -1353,17 +1473,19 @@ function Workspace({ l, onOpenReport, setResultData, resultData }) {
         </div>
 
         {/* 중앙: 에이전트 실시간 교신 피드 & 다중 에이전트 성좌 */}
-        <div className="dialogue-desk workbench-card">
+        <div className={`dialogue-desk workbench-card ${mobileTab === 'TELEMETRY' ? 'm-active' : 'm-hidden'}`}>
           <AgentDialogueStream
             trace={resultData?.trace}
             busy={busy}
             elapsed={elapsed}
             l={l}
+            isComplete={!busy && !!resultData}
+            onOpenReport={() => onOpenReport(resultData, content)}
           />
         </div>
 
         {/* 우측: 1~9 단계 검증 파이프라인 */}
-        <div className="pipeline-desk workbench-card">
+        <div className={`pipeline-desk workbench-card ${mobileTab === 'STAGES' ? 'm-active' : 'm-hidden'}`}>
           <StepsColumn
             trace={resultData?.trace}
             stages={resultData?.stages}

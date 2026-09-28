@@ -102,8 +102,8 @@ async def get_latest_completed_investigation():
 
 @app.get("/api/v1/examples")
 async def list_public_examples():
-    """Return verified, sanitized public completed investigations for the public community gallery."""
-    return [
+    """Return verified public completed investigations, including dynamic real jobs."""
+    base = [
         {
             "id": "advertising-4w-37",
             "title_ko": "4주 사용 시 피부 탄력 37% 개선 광고 검증",
@@ -125,6 +125,38 @@ async def list_public_examples():
             "sources_count": 8
         }
     ]
+
+    try:
+        with job_manager._connect() as conn:
+            rows = conn.execute(
+                "SELECT id, request_json, result_json FROM investigation_jobs WHERE status='COMPLETED' AND result_json IS NOT NULL ORDER BY updated_at DESC"
+            ).fetchall()
+
+        for row in rows:
+            # skip the hardcoded seed politics job if it matches
+            if row["id"] == "a39a26f8-c60c-482c-a450-62de0240819a":
+                continue
+            req = json.loads(row["request_json"]) if row["request_json"] else {}
+            res = json.loads(row["result_json"]) if row["result_json"] else {}
+            claim_text = req.get("content") or req.get("claim", "")
+            if not claim_text:
+                continue
+            title = claim_text[:56] + ("..." if len(claim_text) > 56 else "")
+            base.append({
+                "id": f"job-{row['id']}",
+                "job_id": row["id"],
+                "title_ko": title,
+                "title_en": title,
+                "mode": req.get("mode", "POLITICS"),
+                "summary_ko": f"세부 팩트 요건 {len(res.get('components', []))}개 및 1차 출처 {len(res.get('evidence', []))}건 검증 완료",
+                "summary_en": f"Verified {len(res.get('components', []))} atomic components against {len(res.get('evidence', []))} primary sources.",
+                "status": res.get("status", "INSUFFICIENT_EVIDENCE"),
+                "sources_count": len(res.get("evidence", []))
+            })
+    except Exception:
+        pass
+
+    return base
 
 
 EXAMPLE_ADVERTISEMENT_CLAIM = "Using this product for 4 weeks improves skin elasticity by 37%."
@@ -171,6 +203,19 @@ async def cached_politics_example():
         return job.result
     record = EvidenceMemory().get_exact(EXAMPLE_ADVERTISEMENT_CLAIM, "ADVERTISEMENT")
     return await cached_advertising_example()
+
+
+@app.get("/api/v1/examples/{example_id}", response_model=InvestigationResponse)
+async def get_example_by_id(example_id: str):
+    if example_id == "advertising-4w-37":
+        return await cached_advertising_example()
+    if example_id == "shincheonji-allegation":
+        return await cached_politics_example()
+    real_id = example_id.replace("job-", "")
+    job = job_manager.get(real_id)
+    if job and job.result:
+        return job.result
+    raise HTTPException(status_code=404, detail="Example not found.")
 
 
 # The production UI is a same-origin Vite build. Only its compiled files are
